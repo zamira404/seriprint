@@ -36,9 +36,6 @@ export function Header() {
                   className="absolute left-0 mt-2 w-[520px] unw-card p-4"
                   onMouseLeave={() => setOpen(false)}
                 >
-                  <div className="text-xs text-[var(--muted)] mb-3">
-                    Scegli con calma - tutto e organizzato.
-                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {PRODUCT_CATEGORY_ORDER.map((slug) => (
                       <Link
@@ -47,10 +44,7 @@ export function Header() {
                         className="unw-ease rounded-2xl border border-[var(--border)] bg-white/5 px-3 py-3 hover:border-[var(--blue)] hover:shadow-[var(--glow-blue)]"
                         onClick={() => setOpen(false)}
                       >
-                        <div className="text-sm font-medium capitalize">{slug}</div>
-                        <div className="text-xs text-[var(--muted)] mt-0.5">
-                          Esplora selezione premium
-                        </div>
+                        <div className="text-sm font-medium uppercase">{slug}</div>
                       </Link>
                     ))}
                   </div>

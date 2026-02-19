@@ -39,8 +39,7 @@ export default function HomePage() {
               <Card className="unw-ease hover:translate-y-[-2px] hover:shadow-[var(--shadow)]">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm text-[var(--muted)]">Selezione premium</div>
-                    <div className="mt-1 text-lg font-semibold capitalize">{slug}</div>
+                    <div className="mt-1 text-lg font-semibold uppercase">{slug}</div>
                   </div>
                   <div className="text-[var(--violet)] text-xl">➜</div>
                 </div>

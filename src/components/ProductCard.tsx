@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Product } from "@/lib/data/products";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -34,11 +35,20 @@ export function ProductCard({ p }: { p: Product }) {
       <div className="mt-4 flex items-start justify-between gap-3">
         <div>
           <div className="text-sm text-[var(--muted)] capitalize">{p.category}</div>
-          <div className="mt-1 font-semibold tracking-[-0.01em]">{p.name}</div>
+          <div className="mt-1 font-semibold tracking-[-0.01em]">
+            {p.code ? <Link href={`/shop/${p.code}`}>{p.name}</Link> : p.name}
+          </div>
         </div>
         <div className="text-sm font-semibold">{formatEUR(p.price)}</div>
       </div>
-      <div className="mt-4">
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {p.code ? (
+          <Link href={`/shop/${p.code}`}>
+            <Button variant="secondary" className="w-full">
+              Personalizza
+            </Button>
+          </Link>
+        ) : null}
         <Button
           className="w-full"
           onClick={() => {
@@ -46,7 +56,7 @@ export function ProductCard({ p }: { p: Product }) {
             toast.push({ title: "Aggiunto ✓", actionLabel: "Vai al carrello", actionHref: "/carrello" });
           }}
         >
-          Aggiungi
+          Aggiungi base
         </Button>
       </div>
     </Card>

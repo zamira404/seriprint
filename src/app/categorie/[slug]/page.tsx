@@ -23,11 +23,9 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
         />
         <div className="relative">
           <div className="text-xs text-[var(--muted)]">Categoria</div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em] capitalize">
-            {typedSlug} <span className="text-[var(--violet)]">premium</span>
-          </h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em] uppercase">{typedSlug}</h1>
           <p className="mt-2 text-[var(--muted)] max-w-[60ch]">
-            Selezione curata, stile pulito, qualita alta. Procedi con calma.
+            Prodotti disponibili per questa categoria.
           </p>
         </div>
       </div>
