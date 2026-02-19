@@ -69,7 +69,7 @@ export function Header() {
             </div>
           ) : (
             <Link href="/auth" className="hidden sm:inline-flex">
-              <Button variant="secondary">Accedi</Button>
+              <Button variant="secondary">Accedi / Registrati</Button>
             </Link>
           )}
           <Link href="/carrello" className="relative unw-ease rounded-2xl px-3 py-2 hover:bg-white/5">
