@@ -1,13 +1,13 @@
 import type { CategorySlug } from "@/lib/constants";
-import { uid } from "@/lib/utils";
 
 export type Product = {
   id: string;
+  code?: string;
   name: string;
   price: number;
   category: CategorySlug;
   tag?: "Nuovo" | "Popolare";
-  imageSvg?: string;
+  imageUrl?: string;
 };
 
 function svg(text: string) {
@@ -28,17 +28,17 @@ function svg(text: string) {
   </svg>`)}`
 }
 
-export const PRODUCTS: Product[] = [
-  { id: uid("p"), name: "T-shirt Premium Soft", price: 24.9, category: "donna", tag: "Popolare", imageSvg: svg("Donna") },
-  { id: uid("p"), name: "Hoodie Urban Calm", price: 59.9, category: "uomo", tag: "Nuovo", imageSvg: svg("Uomo") },
-  { id: uid("p"), name: "Felpa Kids Cozy", price: 39.9, category: "bambino", imageSvg: svg("Bambino") },
-  { id: uid("p"), name: "Shopper Canvas Strong", price: 19.9, category: "shopper", tag: "Popolare", imageSvg: svg("Shopper") },
-  { id: uid("p"), name: "Stampa Casa Minimal", price: 29.9, category: "casa", imageSvg: svg("Casa") },
-  { id: uid("p"), name: "Canvas Premium 30x40", price: 49.9, category: "canvas", tag: "Nuovo", imageSvg: svg("Canvas") },
-  { id: uid("p"), name: "T-shirt Nordic Fit", price: 26.9, category: "donna", imageSvg: svg("Donna") },
-  { id: uid("p"), name: "Maglia Tech-Lite", price: 34.9, category: "uomo", imageSvg: svg("Uomo") },
-  { id: uid("p"), name: "Body Baby Soft", price: 18.9, category: "bambino", imageSvg: svg("Bambino") },
-  { id: uid("p"), name: "Shopper Daily Blue", price: 17.9, category: "shopper", imageSvg: svg("Shopper") },
-  { id: uid("p"), name: "Poster Casa Calm", price: 14.9, category: "casa", imageSvg: svg("Casa") },
-  { id: uid("p"), name: "Canvas Luxe 50x70", price: 79.9, category: "canvas", imageSvg: svg("Canvas") },
+export const MOCK_PRODUCTS: Product[] = [
+  { id: "mock-1", name: "T-shirt Premium Soft", price: 24.9, category: "donna", tag: "Popolare", imageUrl: svg("Donna") },
+  { id: "mock-2", name: "Hoodie Urban Calm", price: 59.9, category: "uomo", tag: "Nuovo", imageUrl: svg("Uomo") },
+  { id: "mock-3", name: "Felpa Kids Cozy", price: 39.9, category: "bambino", imageUrl: svg("Bambino") },
+  { id: "mock-4", name: "Shopper Canvas Strong", price: 19.9, category: "shopper", tag: "Popolare", imageUrl: svg("Shopper") },
+  { id: "mock-5", name: "Stampa Casa Minimal", price: 29.9, category: "casa", imageUrl: svg("Casa") },
+  { id: "mock-6", name: "Canvas Premium 30x40", price: 49.9, category: "canvas", tag: "Nuovo", imageUrl: svg("Canvas") },
+  { id: "mock-7", name: "T-shirt Nordic Fit", price: 26.9, category: "donna", imageUrl: svg("Donna") },
+  { id: "mock-8", name: "Maglia Tech-Lite", price: 34.9, category: "uomo", imageUrl: svg("Uomo") },
+  { id: "mock-9", name: "Body Baby Soft", price: 18.9, category: "bambino", imageUrl: svg("Bambino") },
+  { id: "mock-10", name: "Shopper Daily Blue", price: 17.9, category: "shopper", imageUrl: svg("Shopper") },
+  { id: "mock-11", name: "Poster Casa Calm", price: 14.9, category: "casa", imageUrl: svg("Casa") },
+  { id: "mock-12", name: "Canvas Luxe 50x70", price: 79.9, category: "canvas", imageUrl: svg("Canvas") },
 ];

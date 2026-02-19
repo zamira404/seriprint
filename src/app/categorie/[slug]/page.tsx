@@ -1,14 +1,15 @@
 import { notFound } from "next/navigation";
 import { CATEGORY_SLUGS, CategorySlug } from "@/lib/constants";
-import { PRODUCTS } from "@/lib/data/products";
 import { ProductCard } from "@/components/ProductCard";
+import { getShopProducts } from "@/lib/server/basic-products";
 
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const typedSlug = slug as CategorySlug;
   if (!CATEGORY_SLUGS.includes(typedSlug)) return notFound();
 
-  const list = PRODUCTS.filter((p) => p.category === typedSlug);
+  const products = await getShopProducts();
+  const list = products.filter((p) => p.category === typedSlug);
 
   return (
     <div className="space-y-6">

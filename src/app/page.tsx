@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { CATEGORY_SLUGS } from "@/lib/constants";
+import { PRODUCT_CATEGORY_ORDER } from "@/lib/constants";
 
 export default function HomePage() {
   return (
@@ -34,7 +34,7 @@ export default function HomePage() {
           <div className="text-sm text-[var(--muted)]">Esplora con calma.</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {CATEGORY_SLUGS.map((slug) => (
+          {PRODUCT_CATEGORY_ORDER.map((slug) => (
             <Link key={slug} href={`/categorie/${slug}`}>
               <Card className="unw-ease hover:translate-y-[-2px] hover:shadow-[var(--shadow)]">
                 <div className="flex items-center justify-between">

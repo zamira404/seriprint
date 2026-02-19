@@ -11,6 +11,14 @@ export const CATEGORY_SLUGS = [
 
 export type CategorySlug = (typeof CATEGORY_SLUGS)[number];
 
+export const PRODUCT_CATEGORY_ORDER = [
+  "donna",
+  "uomo",
+  "bambino",
+  "casa",
+  "canvas",
+] as const;
+
 export const UI = {
   maxCloudFiles: 200,
 } as const;

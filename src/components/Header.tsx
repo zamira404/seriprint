@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import * as React from "react";
-import { BRAND, CATEGORY_SLUGS } from "@/lib/constants";
+import { BRAND, PRODUCT_CATEGORY_ORDER } from "@/lib/constants";
 import { useCartStore } from "@/lib/stores/cart.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { Badge } from "@/components/ui/Badge";
@@ -40,7 +40,7 @@ export function Header() {
                     Scegli con calma - tutto e organizzato.
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {CATEGORY_SLUGS.map((slug) => (
+                    {PRODUCT_CATEGORY_ORDER.map((slug) => (
                       <Link
                         key={slug}
                         href={`/categorie/${slug}`}

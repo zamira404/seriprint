@@ -21,13 +21,15 @@ export function ProductCard({ p }: { p: Product }) {
             <Badge variant={p.tag === "Nuovo" ? "violet" : "blue"}>{p.tag}</Badge>
           </div>
         ) : null}
-        <Image
-          src={p.imageSvg || ""}
-          alt={p.name}
-          width={900}
-          height={600}
-          className="h-[160px] w-full object-cover"
-        />
+        <div className="h-[190px] w-full p-4 flex items-center justify-center">
+          <Image
+            src={p.imageUrl || "/file.svg"}
+            alt={p.name}
+            width={900}
+            height={600}
+            className="h-full w-full object-contain object-center"
+          />
+        </div>
       </div>
       <div className="mt-4 flex items-start justify-between gap-3">
         <div>
