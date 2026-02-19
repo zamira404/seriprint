@@ -1,65 +1,66 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { CATEGORY_SLUGS } from "@/lib/constants";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="space-y-10">
+      <section className="relative unw-card overflow-hidden p-8 sm:p-10">
+        <div
+          className="absolute inset-0 opacity-40 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(800px 400px at 20% 10%, rgba(43,89,255,0.25), transparent 55%), radial-gradient(700px 420px at 80% 30%, rgba(124,58,237,0.22), transparent 60%)",
+          }}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+        <div className="relative">
+          <div className="text-xs text-[var(--muted)]">UNAWATUNA • Premium calm</div>
+          <h1 className="mt-3 text-3xl sm:text-5xl font-semibold tracking-[-0.03em] leading-tight">
+            Carica, organizza, stampa. <span className="text-[var(--yellow)]">Senza stress</span>.
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-4 max-w-[56ch] text-[var(--muted)]">
+            Un esperienza tech e rilassante: tutto resta in ordine, pronto quando vuoi.
           </p>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <Link href="/shop"><Button>Vai allo Shop</Button></Link>
+            <Link href="/cloud"><Button variant="secondary">Apri Cloud</Button></Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+      <section className="space-y-4">
+        <div className="flex items-end justify-between gap-4">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.02em]">Categorie</h2>
+          <div className="text-sm text-[var(--muted)]">Esplora con calma.</div>
         </div>
-      </main>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {CATEGORY_SLUGS.map((slug) => (
+            <Link key={slug} href={`/categorie/${slug}`}>
+              <Card className="unw-ease hover:translate-y-[-2px] hover:shadow-[var(--shadow)]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-[var(--muted)]">Selezione premium</div>
+                    <div className="mt-1 text-lg font-semibold capitalize">{slug}</div>
+                  </div>
+                  <div className="text-[var(--violet)] text-xl">➜</div>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {[
+          { t: "1) Carica", d: "Trascina i file nel Cloud: rimangono pronti per te." },
+          { t: "2) Organizza", d: "Filtra per foto/documenti, rinomina, seleziona per stampa." },
+          { t: "3) Stampa", d: "Aggiungi al carrello e procedi con calma." },
+        ].map((x) => (
+          <Card key={x.t} className="unw-ease">
+            <div className="text-sm text-[var(--muted)]">{x.t}</div>
+            <div className="mt-2 font-semibold">{x.d}</div>
+          </Card>
+        ))}
+      </section>
     </div>
   );
 }

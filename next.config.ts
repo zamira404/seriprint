@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Keep Turbopack scoped to this project to avoid scanning parent folders.
+  turbopack: {
+    root: process.cwd(),
+  },
   reactCompiler: true,
 };
 
