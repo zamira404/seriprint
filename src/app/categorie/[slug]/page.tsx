@@ -30,9 +30,13 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {list.map((p) => (
-          <ProductCard key={p.id} p={p} />
-        ))}
+        {list.length > 0 ? (
+          list.map((p) => <ProductCard key={p.id} p={p} />)
+        ) : (
+          <div className="unw-card p-6 text-[var(--muted)] sm:col-span-2 lg:col-span-3">
+            Categoria predisposta per il futuro. A breve inseriremo articoli disponibili.
+          </div>
+        )}
       </div>
     </div>
   );

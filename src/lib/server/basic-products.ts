@@ -55,11 +55,16 @@ export type ProductDetail = {
 
 const API_BASE = "https://webapi-basic.sys-web.it/Basic.WebAPI/api/Basic";
 const LISTA_PRODOTTI_ENDPOINT = `${API_BASE}/ListaProdotti`;
+const LISTA_BARCODE_ENDPOINT = `${API_BASE}/ListaBarcode`;
 const LISTINO_ENDPOINT = `${API_BASE}/Listino`;
 const DISPONIBILITA_ENDPOINT = `${API_BASE}/Disponibilita`;
 
 function normalizeCode(value: string) {
   return value.replace(/\s+/g, "").toUpperCase();
+}
+
+function normalizeLoose(value: string) {
+  return value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
 }
 
 function toImageUrl(filename?: string) {
@@ -119,9 +124,14 @@ async function postBasic<T>(endpoint: string, token: string, payload: Record<str
 }
 
 function config() {
+  const correlationRaw = process.env.BASIC_CODE_DUB || "61036";
   return {
     token: process.env.BASIC_API_TOKEN || "",
     brand: (process.env.BASIC_BRAND || "JHK").trim(),
+    correlationCodes: correlationRaw
+      .split(",")
+      .map((x) => normalizeLoose(x))
+      .filter(Boolean),
   };
 }
 
@@ -129,6 +139,14 @@ async function fetchRawProducts() {
   const { token, brand } = config();
   if (!token || !brand) return [] as BasicListaProdottiItem[];
   return postBasic<BasicListaProdottiItem>(LISTA_PRODOTTI_ENDPOINT, token, { marchio: brand });
+}
+
+async function fetchBrandVariantSources(token: string, brand: string) {
+  const [listino, disponibilita] = await Promise.all([
+    postBasic<BasicVariantListItem>(LISTINO_ENDPOINT, token, { marchio: brand }),
+    postBasic<BasicVariantListItem>(DISPONIBILITA_ENDPOINT, token, { marchio: brand }),
+  ]);
+  return { listino, disponibilita };
 }
 
 function mapToShopProduct(item: BasicListaProdottiItem): Product | null {
@@ -157,10 +175,109 @@ function uniqByCode(products: Product[]) {
   });
 }
 
+function buildSupplierVariantMaps(
+  listino: BasicVariantListItem[],
+  disponibilita: BasicVariantListItem[]
+) {
+  const qtyByBarcode = new Map<string, number>();
+  for (const item of disponibilita) {
+    if (!item.barcode) continue;
+    qtyByBarcode.set(item.barcode, Number(item.qta ?? 0));
+  }
+
+  const priceByBarcode = new Map<string, number>();
+  const variantsByProduct = new Map<string, ProductVariant[]>();
+
+  for (const row of listino) {
+    const productCode = row.prodotto ? normalizeCode(row.prodotto) : "";
+    const barcode = row.barcode || "";
+    if (!productCode || !barcode) continue;
+
+    const price = toPrice(row.prezzo?.[0]?.valore);
+    const variant: ProductVariant = {
+      barcode,
+      size: row.des_taglia || "-",
+      colorName: row.colore?.descrizione || "-",
+      colorCode: row.colore?.codice || "",
+      colorHex: row.colore?.hexcode || "#9aa3b5",
+      imageUrl: toImageUrl(row.immagine),
+      price,
+      quantity: qtyByBarcode.get(barcode) ?? 0,
+    };
+
+    priceByBarcode.set(barcode, price);
+    const prev = variantsByProduct.get(productCode) ?? [];
+    prev.push(variant);
+    variantsByProduct.set(productCode, prev);
+  }
+
+  return { qtyByBarcode, priceByBarcode, variantsByProduct };
+}
+
+function enrichFromAbbinamenti(
+  item: BasicListaProdottiItem,
+  qtyByBarcode: Map<string, number>,
+  priceByBarcode: Map<string, number>
+) {
+  const out: ProductVariant[] = [];
+  for (const v of item.abbinamenti ?? []) {
+    const barcode = v.barcode || "";
+    if (!barcode) continue;
+    out.push({
+      barcode,
+      size: v.des_taglia || "-",
+      colorName: v.colore?.descrizione || "-",
+      colorCode: v.colore?.codice || "",
+      colorHex: v.colore?.hexcode || "#9aa3b5",
+      imageUrl: toImageUrl(v.immagine) || toImageUrl(item.immagine),
+      price: priceByBarcode.get(barcode) ?? toPrice(v.prezzo?.[0]?.valore),
+      quantity: qtyByBarcode.get(barcode) ?? 0,
+    });
+  }
+  return out;
+}
+
+function isBuyable(variants: ProductVariant[]) {
+  return variants.some((v) => v.price > 0 && v.quantity > 0);
+}
+
+function matchesCorrelation(item: BasicListaProdottiItem, correlationCodes: string[]) {
+  if (correlationCodes.length === 0) return true;
+  const text = normalizeLoose(JSON.stringify(item));
+  return correlationCodes.some((code) => text.includes(code));
+}
+
 export async function getShopProducts(): Promise<Product[]> {
   try {
+    const { token, brand, correlationCodes } = config();
+    if (!token || !brand) return MOCK_PRODUCTS;
+
     const items = await fetchRawProducts();
-    const mapped = uniqByCode(items.map(mapToShopProduct).filter((x): x is Product => Boolean(x)));
+    const { qtyByBarcode, priceByBarcode, variantsByProduct } =
+      await fetchBrandVariantSources(token, brand).then(({ listino, disponibilita }) =>
+        buildSupplierVariantMaps(listino, disponibilita)
+      );
+
+    const buyableAll: Product[] = [];
+    const buyableCorrelation: Product[] = [];
+
+    for (const raw of items) {
+      const product = mapToShopProduct(raw);
+      if (!product || !product.code) continue;
+
+      const fromSupplier = variantsByProduct.get(product.code) ?? [];
+      const fromAbbinamenti = enrichFromAbbinamenti(raw, qtyByBarcode, priceByBarcode);
+      const variants = mergeWithFallback(fromSupplier, fromAbbinamenti);
+      if (!isBuyable(variants)) continue;
+
+      buyableAll.push(product);
+      if (matchesCorrelation(raw, correlationCodes)) {
+        buyableCorrelation.push(product);
+      }
+    }
+
+    const finalList = buyableCorrelation.length > 0 ? buyableCorrelation : buyableAll;
+    const mapped = uniqByCode(finalList);
     return mapped.length > 0 ? mapped : MOCK_PRODUCTS;
   } catch {
     return MOCK_PRODUCTS;
@@ -196,6 +313,75 @@ function mergeVariants(
   return variants.sort((a, b) => a.size.localeCompare(b.size) || a.colorName.localeCompare(b.colorName));
 }
 
+function mergeWithFallback(primary: ProductVariant[], fallback: ProductVariant[]) {
+  if (primary.length === 0) return fallback;
+  const byBarcode = new Map<string, ProductVariant>();
+  for (const f of fallback) {
+    byBarcode.set(f.barcode, f);
+  }
+  const merged = primary.map((p) => {
+    const f = byBarcode.get(p.barcode);
+    if (!f) return p;
+    return {
+      ...p,
+      size: p.size === "-" ? f.size : p.size,
+      colorName: p.colorName === "-" ? f.colorName : p.colorName,
+      colorCode: p.colorCode || f.colorCode,
+      colorHex: p.colorHex === "#9aa3b5" ? f.colorHex : p.colorHex,
+      imageUrl: p.imageUrl || f.imageUrl,
+      price: p.price > 0 ? p.price : f.price,
+    };
+  });
+  return merged;
+}
+
+function mergeByBarcode(...lists: ProductVariant[][]) {
+  const out = new Map<string, ProductVariant>();
+  for (const list of lists) {
+    for (const v of list) {
+      const prev = out.get(v.barcode);
+      if (!prev) {
+        out.set(v.barcode, v);
+        continue;
+      }
+      out.set(v.barcode, {
+        ...prev,
+        size: prev.size !== "-" ? prev.size : v.size,
+        colorName: prev.colorName !== "-" ? prev.colorName : v.colorName,
+        colorCode: prev.colorCode || v.colorCode,
+        colorHex: prev.colorHex !== "#9aa3b5" ? prev.colorHex : v.colorHex,
+        imageUrl: prev.imageUrl || v.imageUrl,
+        price: prev.price > 0 ? prev.price : v.price,
+        quantity: Math.max(prev.quantity, v.quantity),
+      });
+    }
+  }
+  return Array.from(out.values());
+}
+
+function variantsFromBarcodeRows(
+  rows: BasicVariantListItem[],
+  qtyByBarcode: Map<string, number>,
+  priceByBarcode: Map<string, number>
+) {
+  const variants: ProductVariant[] = [];
+  for (const row of rows) {
+    const barcode = row.barcode || "";
+    if (!barcode) continue;
+    variants.push({
+      barcode,
+      size: row.des_taglia || "-",
+      colorName: row.colore?.descrizione || "-",
+      colorCode: row.colore?.codice || "",
+      colorHex: row.colore?.hexcode || "#9aa3b5",
+      imageUrl: toImageUrl(row.immagine),
+      price: priceByBarcode.get(barcode) ?? toPrice(row.prezzo?.[0]?.valore),
+      quantity: qtyByBarcode.get(barcode) ?? Number(row.qta ?? 0),
+    });
+  }
+  return variants;
+}
+
 export async function getProductDetail(code: string): Promise<ProductDetail | null> {
   try {
     const normalized = normalizeCode(code);
@@ -210,12 +396,17 @@ export async function getProductDetail(code: string): Promise<ProductDetail | nu
     const mapped = mapToShopProduct(productRaw);
     if (!mapped) return null;
 
-    const [listino, disponibilita] = await Promise.all([
+    const [barcodes, listino, disponibilita] = await Promise.all([
+      postBasic<BasicVariantListItem>(LISTA_BARCODE_ENDPOINT, token, { marchio: brand, prodotto: normalized }),
       postBasic<BasicVariantListItem>(LISTINO_ENDPOINT, token, { marchio: brand, prodotto: normalized }),
       postBasic<BasicVariantListItem>(DISPONIBILITA_ENDPOINT, token, { marchio: brand, prodotto: normalized }),
     ]);
 
-    const variants = mergeVariants(listino, disponibilita);
+    const fromListino = mergeVariants(listino, disponibilita);
+    const { qtyByBarcode, priceByBarcode } = buildSupplierVariantMaps(listino, disponibilita);
+    const fromAbbinamenti = enrichFromAbbinamenti(productRaw, qtyByBarcode, priceByBarcode);
+    const fromBarcode = variantsFromBarcodeRows(barcodes, qtyByBarcode, priceByBarcode);
+    const variants = mergeByBarcode(fromListino, fromBarcode, fromAbbinamenti);
 
     return {
       product: mapped,
