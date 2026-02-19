@@ -8,6 +8,9 @@ export type Product = {
   category: CategorySlug;
   tag?: "Nuovo" | "Popolare";
   imageUrl?: string;
+  colorCount?: number;
+  sizeCount?: number;
+  availableQty?: number;
 };
 
 function svg(text: string) {

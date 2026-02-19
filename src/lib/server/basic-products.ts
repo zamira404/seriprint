@@ -84,13 +84,10 @@ function firstPrice(item: BasicListaProdottiItem) {
 function mapCategory(item: BasicListaProdottiItem): Product["category"] | null {
   const genere = (item.informazioni?.genere ?? "").toUpperCase();
   const categoria = (item.informazioni?.categoria ?? "").toUpperCase();
-  const codCategoria = (item.informazioni?.cod_categoria ?? "").toUpperCase();
   const descrizione = (item.descrizionebreve ?? "").toUpperCase();
-  const apparelAllowed = codCategoria === "001" || codCategoria === "003";
-
-  if (genere.includes("DONNA") && apparelAllowed) return "donna";
-  if (genere.includes("UOMO") && apparelAllowed) return "uomo";
-  if ((genere.includes("BAMBINO") || genere.includes("KIDS")) && apparelAllowed) return "bambino";
+  if (genere.includes("DONNA")) return "donna";
+  if (genere.includes("UOMO")) return "uomo";
+  if (genere.includes("BAMBINO") || genere.includes("KIDS")) return "bambino";
   if (categoria.includes("CANVAS") || descrizione.includes("CANVAS")) return "canvas";
   if (categoria.includes("CASA") || descrizione.includes("CASA")) return "casa";
   return null;
@@ -130,7 +127,7 @@ function config() {
     brand: (process.env.BASIC_BRAND || "JHK").trim(),
     correlationCodes: correlationRaw
       .split(",")
-      .map((x) => normalizeLoose(x))
+      .map((x) => x.trim())
       .filter(Boolean),
   };
 }
@@ -163,6 +160,13 @@ function mapToShopProduct(item: BasicListaProdottiItem): Product | null {
     tag: item.informazioni?.novita ? "Nuovo" : undefined,
     imageUrl: toImageUrl(item.immagine),
   };
+}
+
+function productTypeRank(name: string) {
+  const n = name.toUpperCase();
+  if (n.includes("T-SHIRT")) return 0;
+  if (n.includes("FELPA")) return 1;
+  return 2;
 }
 
 function uniqByCode(products: Product[]) {
@@ -243,8 +247,29 @@ function isBuyable(variants: ProductVariant[]) {
 
 function matchesCorrelation(item: BasicListaProdottiItem, correlationCodes: string[]) {
   if (correlationCodes.length === 0) return true;
-  const text = normalizeLoose(JSON.stringify(item));
-  return correlationCodes.some((code) => text.includes(code));
+  const code = normalizeLoose(item.prodotto);
+  const codeNoPrefix = code.startsWith("O") ? code.slice(1) : code;
+
+  return correlationCodes.some((raw) => {
+    const hasWildcard = raw.includes("*");
+    const normalized = normalizeLoose(raw.replace(/\*/g, ""));
+    if (!normalized) return false;
+
+    if (hasWildcard) {
+      return code.startsWith(normalized) || codeNoPrefix.startsWith(normalized);
+    }
+
+    if (normalized.length <= 2) {
+      return code.startsWith(normalized) || codeNoPrefix.startsWith(normalized);
+    }
+
+    return (
+      code === normalized ||
+      codeNoPrefix === normalized ||
+      code.startsWith(normalized) ||
+      codeNoPrefix.startsWith(normalized)
+    );
+  });
 }
 
 export async function getShopProducts(): Promise<Product[]> {
@@ -270,14 +295,29 @@ export async function getShopProducts(): Promise<Product[]> {
       const variants = mergeWithFallback(fromSupplier, fromAbbinamenti);
       if (!isBuyable(variants)) continue;
 
-      buyableAll.push(product);
+      const uniqueColors = new Set(variants.map((v) => v.colorCode).filter(Boolean)).size;
+      const uniqueSizes = new Set(variants.map((v) => v.size).filter(Boolean)).size;
+      const availableQty = variants.reduce((sum, v) => sum + Math.max(0, v.quantity), 0);
+      const enriched: Product = {
+        ...product,
+        colorCount: uniqueColors,
+        sizeCount: uniqueSizes,
+        availableQty,
+      };
+
+      buyableAll.push(enriched);
       if (matchesCorrelation(raw, correlationCodes)) {
-        buyableCorrelation.push(product);
+        buyableCorrelation.push(enriched);
       }
     }
 
     const finalList = buyableCorrelation.length > 0 ? buyableCorrelation : buyableAll;
-    const mapped = uniqByCode(finalList);
+    const mapped = uniqByCode(finalList).sort((a, b) => {
+      const ra = productTypeRank(a.name);
+      const rb = productTypeRank(b.name);
+      if (ra !== rb) return ra - rb;
+      return a.name.localeCompare(b.name, "it");
+    });
     return mapped.length > 0 ? mapped : MOCK_PRODUCTS;
   } catch {
     return MOCK_PRODUCTS;

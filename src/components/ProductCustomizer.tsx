@@ -46,6 +46,14 @@ export function ProductCustomizer({ detail }: { detail: ProductDetail }) {
   const [printColor, setPrintColor] = React.useState(PRINT_COLORS[1]);
   const [logoDataUrl, setLogoDataUrl] = React.useState<string | null>(null);
   const [qty, setQty] = React.useState(1);
+  const [fontSize, setFontSize] = React.useState(38);
+  const [printArea, setPrintArea] = React.useState({ x: 140, y: 80, w: 140, h: 340 });
+  const [contentOffset, setContentOffset] = React.useState({ x: 0, y: 0 });
+  const previewRef = React.useRef<HTMLDivElement | null>(null);
+  const dragRef = React.useRef<
+    | null
+    | { type: "box" | "content"; startX: number; startY: number; boxStartX: number; boxStartY: number; contentStartX: number; contentStartY: number }
+  >(null);
 
   const sizes = React.useMemo(
     () => Array.from(new Set(variants.map((v) => v.size))),
@@ -67,6 +75,42 @@ export function ProductCustomizer({ detail }: { detail: ProductDetail }) {
     setSize(selectedVariant.size);
     setColorCode(selectedVariant.colorCode);
   }, [selectedVariant]);
+
+  React.useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const preview = previewRef.current;
+      if (!preview) return;
+      const rect = preview.getBoundingClientRect();
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+
+      if (dragRef.current.type === "box") {
+        const maxX = Math.max(0, rect.width - printArea.w);
+        const maxY = Math.max(0, rect.height - printArea.h);
+        const nx = Math.min(maxX, Math.max(0, dragRef.current.boxStartX + dx));
+        const ny = Math.min(maxY, Math.max(0, dragRef.current.boxStartY + dy));
+        setPrintArea((prev) => ({ ...prev, x: nx, y: ny }));
+      } else {
+        const limX = printArea.w / 2 - 18;
+        const limY = printArea.h / 2 - 18;
+        const nx = Math.min(limX, Math.max(-limX, dragRef.current.contentStartX + dx));
+        const ny = Math.min(limY, Math.max(-limY, dragRef.current.contentStartY + dy));
+        setContentOffset({ x: nx, y: ny });
+      }
+    };
+
+    const onUp = () => {
+      dragRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [printArea.h, printArea.w]);
 
   const basePrice = selectedVariant?.price || detail.product.price;
   const printPrice = (text.trim() ? PRINT_PRICE_TEXT : 0) + (logoDataUrl ? PRINT_PRICE_LOGO : 0);
@@ -96,6 +140,7 @@ export function ProductCustomizer({ detail }: { detail: ProductDetail }) {
         font,
         printColor: printColor.name,
         hasLogo: Boolean(logoDataUrl),
+        imageUrl: selectedVariant.imageUrl || detail.product.imageUrl,
       },
     });
     toast.push({ title: "Articolo personalizzato aggiunto ✓", actionLabel: "Vai al carrello", actionHref: "/carrello" });
@@ -105,20 +150,64 @@ export function ProductCustomizer({ detail }: { detail: ProductDetail }) {
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4">
       <Card className="space-y-4">
         <div className="text-sm text-[var(--muted)]">Anteprima di stampa</div>
-        <div className="relative rounded-2xl border border-[var(--border)] bg-white/5 h-[420px] overflow-hidden">
-          {selectedVariant?.imageUrl ? (
-            <Image src={selectedVariant.imageUrl} alt={detail.product.name} fill className="object-contain object-center p-6" />
-          ) : null}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="max-w-[70%] text-center space-y-2">
-              {logoDataUrl ? (
-                <Image src={logoDataUrl} alt="Logo caricato" width={110} height={110} className="mx-auto object-contain" />
-              ) : null}
-              {text.trim() ? (
-                <p style={{ fontFamily: font, color: printColor.hex }} className="text-3xl font-semibold drop-shadow">
-                  {text}
-                </p>
-              ) : null}
+        <div className="relative rounded-2xl border border-[var(--border)] bg-white/5 h-[640px] overflow-hidden">
+          <div ref={previewRef} className="absolute inset-0">
+            {selectedVariant?.imageUrl ? (
+              <Image src={selectedVariant.imageUrl} alt={detail.product.name} fill className="object-contain object-center p-2" />
+            ) : null}
+
+            <div
+              className="absolute border-2 border-dashed border-[var(--yellow)]/80 bg-[rgba(255,216,77,0.07)] cursor-move"
+              style={{ left: printArea.x, top: printArea.y, width: printArea.w, height: printArea.h }}
+              onMouseDown={(e) => {
+                dragRef.current = {
+                  type: "box",
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  boxStartX: printArea.x,
+                  boxStartY: printArea.y,
+                  contentStartX: contentOffset.x,
+                  contentStartY: contentOffset.y,
+                };
+              }}
+              title="Sposta area stampa"
+            >
+              <div className="absolute -top-6 left-0 text-[11px] text-[var(--yellow)]">
+                Area stampa
+              </div>
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className="absolute left-1/2 top-1/2 cursor-grab active:cursor-grabbing select-none"
+                  style={{ transform: `translate(calc(-50% + ${contentOffset.x}px), calc(-50% + ${contentOffset.y}px))` }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    dragRef.current = {
+                      type: "content",
+                      startX: e.clientX,
+                      startY: e.clientY,
+                      boxStartX: printArea.x,
+                      boxStartY: printArea.y,
+                      contentStartX: contentOffset.x,
+                      contentStartY: contentOffset.y,
+                    };
+                  }}
+                  title="Sposta anteprima stampa"
+                >
+                  <div className="max-w-[260px] text-center space-y-2">
+                    {logoDataUrl ? (
+                      <Image src={logoDataUrl} alt="Logo caricato" width={110} height={110} className="mx-auto object-contain" />
+                    ) : null}
+                    {text.trim() ? (
+                      <p
+                        style={{ fontFamily: font, color: printColor.hex, fontSize: `${fontSize}px`, lineHeight: 1.1 }}
+                        className="font-semibold drop-shadow"
+                      >
+                        {text}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -136,8 +225,9 @@ export function ProductCustomizer({ detail }: { detail: ProductDetail }) {
                 <button
                   key={c.code}
                   onClick={() => setColorCode(c.code)}
-                  className={`px-3 py-1.5 rounded-xl border text-sm ${colorCode === c.code ? "border-[var(--blue)]" : "border-[var(--border)]"}`}
+                  className={`px-3 py-1.5 rounded-xl border text-sm inline-flex items-center gap-2 ${colorCode === c.code ? "border-[var(--blue)]" : "border-[var(--border)]"}`}
                 >
+                  <span className="h-3.5 w-3.5 rounded-sm border border-white/40" style={{ backgroundColor: c.hex }} />
                   {c.name}
                 </button>
               ))}
@@ -194,14 +284,59 @@ export function ProductCustomizer({ detail }: { detail: ProductDetail }) {
           </select>
 
           <div>
+            <div className="mb-1 text-sm text-[var(--muted)]">Dimensione scritta: {fontSize}px</div>
+            <input
+              type="range"
+              min={18}
+              max={84}
+              step={1}
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="w-full"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="mb-1 text-sm text-[var(--muted)]">Larghezza area stampa</div>
+              <input
+                type="range"
+                min={140}
+                max={340}
+                step={2}
+                value={printArea.w}
+                onChange={(e) =>
+                  setPrintArea((p) => ({ ...p, w: Number(e.target.value) }))
+                }
+                className="w-full"
+              />
+            </div>
+            <div>
+              <div className="mb-1 text-sm text-[var(--muted)]">Altezza area stampa</div>
+              <input
+                type="range"
+                min={90}
+                max={360}
+                step={2}
+                value={printArea.h}
+                onChange={(e) =>
+                  setPrintArea((p) => ({ ...p, h: Number(e.target.value) }))
+                }
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          <div>
             <div className="mb-2 text-sm text-[var(--muted)]">Colore stampa testo</div>
             <div className="flex flex-wrap gap-2">
               {PRINT_COLORS.map((c) => (
                 <button
                   key={c.name}
                   onClick={() => setPrintColor(c)}
-                  className={`px-3 py-1.5 rounded-xl border text-sm ${printColor.name === c.name ? "border-[var(--blue)]" : "border-[var(--border)]"}`}
+                  className={`px-3 py-1.5 rounded-xl border text-sm inline-flex items-center gap-2 ${printColor.name === c.name ? "border-[var(--blue)]" : "border-[var(--border)]"}`}
                 >
+                  <span className="h-3.5 w-3.5 rounded-sm border border-white/40" style={{ backgroundColor: c.hex }} />
                   {c.name}
                 </button>
               ))}

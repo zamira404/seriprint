@@ -23,7 +23,6 @@ export default function HomePage() {
             Un esperienza tech e rilassante: tutto resta in ordine, pronto quando vuoi.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <Link href="/shop"><Button>Vai allo Shop</Button></Link>
             <Link href="/cloud"><Button variant="secondary">Apri Cloud</Button></Link>
           </div>
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCartStore } from "@/lib/stores/cart.store";
 import { Card } from "@/components/ui/Card";
@@ -12,6 +13,8 @@ export default function CarrelloPage() {
   const dec = useCartStore((s) => s.dec);
   const remove = useCartStore((s) => s.remove);
   const subtotal = useCartStore((s) => s.subtotal());
+  const shipping = subtotal >= 59 ? 0 : 6.9;
+  const totalWithShipping = subtotal + shipping;
 
   if (items.length === 0) {
     return (
@@ -40,6 +43,19 @@ export default function CarrelloPage() {
         <div className="space-y-3">
           {items.map((it) => (
             <Card key={it.id} className="flex items-center justify-between gap-3">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-white/5">
+                {typeof it.meta?.imageUrl === "string" && it.meta.imageUrl ? (
+                  <Image
+                    src={it.meta.imageUrl}
+                    alt={it.name}
+                    width={120}
+                    height={120}
+                    className="h-full w-full object-contain object-center"
+                  />
+                ) : (
+                  <div className="h-full w-full grid place-items-center text-xs text-[var(--muted)]">No img</div>
+                )}
+              </div>
               <div className="min-w-0">
                 <div className="text-xs text-[var(--muted)]">{it.type === "print" ? "Stampa da Cloud" : "Prodotto"}</div>
                 <div className="font-semibold truncate">{it.name}</div>
@@ -64,7 +80,15 @@ export default function CarrelloPage() {
           </div>
           <div className="mt-2 flex items-center justify-between text-sm text-[var(--muted)]">
             <div>Spedizione</div>
-            <div>calcolata al checkout</div>
+            <div>{shipping === 0 ? "Gratis sopra 59 EUR" : formatEUR(shipping)}</div>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-sm text-[var(--muted)]">
+            <div>Ritiro in negozio</div>
+            <div>Gratis</div>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <div className="font-medium">Totale stimato (spedizione)</div>
+            <div className="font-semibold">{formatEUR(totalWithShipping)}</div>
           </div>
           <div className="mt-4 unw-divider pt-4">
             <Button className="w-full" onClick={() => (window.location.href = "/checkout")}>

@@ -38,6 +38,11 @@ export function ProductCard({ p }: { p: Product }) {
           <div className="mt-1 font-semibold tracking-[-0.01em]">
             {p.code ? <Link href={`/shop/${p.code}`}>{p.name}</Link> : p.name}
           </div>
+          <div className="mt-2 text-xs text-[var(--muted)]">
+            {p.colorCount ? `${p.colorCount} colori` : "Colori n/d"} •{" "}
+            {p.sizeCount ? `${p.sizeCount} taglie` : "Taglie n/d"} •{" "}
+            {typeof p.availableQty === "number" ? `disp. ${p.availableQty}` : "disp. n/d"}
+          </div>
         </div>
         <div className="text-sm font-semibold">{formatEUR(p.price)}</div>
       </div>
@@ -52,7 +57,13 @@ export function ProductCard({ p }: { p: Product }) {
         <Button
           className="w-full"
           onClick={() => {
-            add({ type: "product", refId: p.id, name: p.name, price: p.price });
+            add({
+              type: "product",
+              refId: p.id,
+              name: p.name,
+              price: p.price,
+              meta: { imageUrl: p.imageUrl },
+            });
             toast.push({ title: "Aggiunto ✓", actionLabel: "Vai al carrello", actionHref: "/carrello" });
           }}
         >

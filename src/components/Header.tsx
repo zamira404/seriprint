@@ -51,9 +51,6 @@ export function Header() {
                 </div>
               ) : null}
             </div>
-            <Link className="unw-ease px-3 py-2 rounded-2xl hover:bg-white/5" href="/shop">
-              Shop
-            </Link>
             <Link className="unw-ease px-3 py-2 rounded-2xl hover:bg-white/5" href="/cloud">
               Cloud
             </Link>
@@ -82,9 +79,6 @@ export function Header() {
                 <Badge>{count}</Badge>
               </span>
             ) : null}
-          </Link>
-          <Link href="/shop" className="md:hidden unw-ease rounded-2xl px-3 py-2 hover:bg-white/5">
-            Shop
           </Link>
         </div>
       </div>

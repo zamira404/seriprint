@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useToast } from "@/components/ui/Toast";
 
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
+
 export default function AuthPage() {
   const toast = useToast();
   const [tab, setTab] = React.useState<"login" | "register">("login");
@@ -32,6 +34,13 @@ export default function AuthPage() {
     }
     if (!name) {
       toast.push({ title: "Inserisci il nome" });
+      return;
+    }
+    if (!PASSWORD_REGEX.test(pass)) {
+      toast.push({
+        title:
+          "Password non valida: minimo 6 caratteri, 1 maiuscola, 1 numero e 1 carattere speciale.",
+      });
       return;
     }
     await register(name, email, pass);
