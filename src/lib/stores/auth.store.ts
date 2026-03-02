@@ -7,6 +7,7 @@ type User = { name: string; email: string };
 
 type AuthState = {
   user: User | null;
+  hydrated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
@@ -16,6 +17,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
+      hydrated: false,
       login: async (email) => {
         set({ user: { name: email.split("@")[0] || "Utente", email } });
         return true;
@@ -26,6 +28,11 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: () => set({ user: null }),
     }),
-    { name: "unawatuna_auth_v1" }
+    {
+      name: "unawatuna_auth_v1",
+      onRehydrateStorage: () => () => {
+        useAuthStore.setState({ hydrated: true });
+      },
+    }
   )
 );

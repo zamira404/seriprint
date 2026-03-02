@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createDraftOrder } from "@/lib/server/order-pipeline";
 
 type PayPalAccessTokenResponse = {
   access_token: string;
@@ -7,12 +8,19 @@ type PayPalAccessTokenResponse = {
 };
 
 type ReqBody = {
+  items?: Array<{ name: string; price: number; qty: number }>;
+  subtotal?: number;
   total: number;
+  shipping?: number;
   currency?: string;
   customer?: {
     firstName?: string;
     lastName?: string;
     email?: string;
+    phone?: string;
+    deliveryMethod?: "shipping" | "pickup";
+    address?: string;
+    billingAddress?: string;
   };
 };
 
@@ -71,6 +79,13 @@ export async function POST(req: Request) {
     const baseUrl = getPayPalBaseUrl();
     const appUrl = appUrlFromRequest(req);
     const accessToken = await getAccessToken(baseUrl, clientId, secret);
+    const draftId = createDraftOrder("paypal", {
+      items: body.items || [],
+      subtotal: Number(body.subtotal || 0),
+      shipping: Number(body.shipping || 0),
+      total,
+      customer: body.customer,
+    });
 
     const orderRes = await fetch(`${baseUrl}/v2/checkout/orders`, {
       method: "POST",
@@ -82,6 +97,7 @@ export async function POST(req: Request) {
         intent: "CAPTURE",
         purchase_units: [
           {
+            custom_id: draftId,
             amount: {
               currency_code: currency,
               value: total.toFixed(2),

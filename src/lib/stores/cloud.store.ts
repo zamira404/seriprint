@@ -24,7 +24,13 @@ type CloudState = {
   tab: "all" | "photo" | "doc";
   setQuery: (q: string) => void;
   setTab: (t: CloudState["tab"]) => void;
-  addFiles: (files: File[]) => Promise<{ added: number; blocked: boolean }>;
+  addFiles: (files: File[]) => Promise<{
+    added: number;
+    blocked: boolean;
+    rejectedType: number;
+    rejectedSize: number;
+    rejectedName: number;
+  }>;
   removeFile: (id: string) => void;
   renameFile: (id: string, newName: string) => void;
   toggleSelect: (id: string) => void;
@@ -44,6 +50,46 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+const ALLOWED_MIME = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/svg+xml",
+]);
+
+const ALLOWED_EXT = new Set([".pdf", ".jpg", ".jpeg", ".svg"]);
+
+function getExt(name: string) {
+  const i = name.lastIndexOf(".");
+  if (i < 0) return "";
+  return name.slice(i).toLowerCase();
+}
+
+function isAllowedFile(file: File) {
+  const ext = getExt(file.name);
+  const hasAllowedMime = file.type ? ALLOWED_MIME.has(file.type.toLowerCase()) : false;
+  return hasAllowedMime || ALLOWED_EXT.has(ext);
+}
+
+function isJpegFile(file: File) {
+  const mime = (file.type || "").toLowerCase();
+  if (mime === "image/jpeg") return true;
+  const ext = getExt(file.name);
+  return ext === ".jpg" || ext === ".jpeg";
+}
+
+function hasSuspiciousName(name: string) {
+  const lower = name.toLowerCase();
+  const parts = lower.split(".").filter(Boolean);
+  if (parts.length < 2) return true;
+  const banned = [".exe", ".msi", ".bat", ".cmd", ".com", ".scr", ".ps1", ".js", ".vbs"];
+  if (banned.some((x) => lower.endsWith(x))) return true;
+  if (parts.length > 2) {
+    const middle = parts.slice(1, -1).map((x) => `.${x}`);
+    if (middle.some((x) => banned.includes(x))) return true;
+  }
+  return false;
+}
+
 export const useCloudStore = create<CloudState>()(
   persist(
     (set, get) => ({
@@ -55,12 +101,20 @@ export const useCloudStore = create<CloudState>()(
       addFiles: async (incoming) => {
         const current = get().files.length;
         const remaining = UI.maxCloudFiles - current;
-        if (remaining <= 0) return { added: 0, blocked: true };
+        if (remaining <= 0) {
+          return { added: 0, blocked: true, rejectedType: 0, rejectedSize: 0, rejectedName: 0 };
+        }
 
-        const toAdd = incoming.slice(0, remaining);
+        const maxBytes = UI.maxCloudFileSizeMB * 1024 * 1024;
+        const valid = incoming.filter((f) => isAllowedFile(f) && f.size <= maxBytes && !hasSuspiciousName(f.name));
+        const rejectedType = incoming.filter((f) => !isAllowedFile(f)).length;
+        const rejectedSize = incoming.filter((f) => isAllowedFile(f) && f.size > maxBytes).length;
+        const rejectedName = incoming.filter((f) => isAllowedFile(f) && hasSuspiciousName(f.name)).length;
+
+        const toAdd = valid.slice(0, remaining);
         const mapped: CloudFile[] = [];
         for (const f of toAdd) {
-          const isPhoto = f.type.startsWith("image/");
+          const isPhoto = isJpegFile(f);
           const kind: CloudFileKind = isPhoto ? "photo" : "doc";
           let previewDataUrl: string | undefined;
           if (isPhoto) {
@@ -83,7 +137,13 @@ export const useCloudStore = create<CloudState>()(
         }
 
         set({ files: [...mapped, ...get().files] });
-        return { added: mapped.length, blocked: incoming.length > toAdd.length };
+        return {
+          added: mapped.length,
+          blocked: valid.length > toAdd.length,
+          rejectedType,
+          rejectedSize,
+          rejectedName,
+        };
       },
       removeFile: (id) => set({ files: get().files.filter((x) => x.id !== id) }),
       renameFile: (id, newName) =>

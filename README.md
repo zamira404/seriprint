@@ -20,6 +20,68 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Cloud Upload Security (Antivirus)
+
+The Cloud page validates uploads server-side (`PDF`, `JPG/JPEG`, `SVG`, max size per file) and can scan files with ClamAV.
+
+### 1) Start ClamAV locally
+
+```bash
+docker compose -f docker-compose.clamav.yml up -d
+```
+
+### 2) Configure env
+
+In `.env.local`:
+
+```env
+CLAMAV_HOST=127.0.0.1
+CLAMAV_PORT=3310
+CLAMAV_TIMEOUT_MS=8000
+CLAMAV_REQUIRED=true
+```
+
+- `CLAMAV_REQUIRED=true` means fail-closed: if scanner is unavailable, upload is blocked.
+- `CLAMAV_REQUIRED=false` means fail-open: format/size validation still works, scanner is optional.
+
+### 3) Verify scanner health
+
+```bash
+curl http://localhost:3000/api/cloud/antivirus-health
+```
+
+Expected (healthy): HTTP `200` with `{ "ok": true, ... }`.
+
+## Payment -> Production Pipeline
+
+When payment is confirmed, the app now creates a production order payload (print job) with customer data, totals, product customization, and cloud-print references.
+
+### Flow
+
+1. Checkout sends full order payload to payment API.
+2. API creates a draft order (`draft_id`).
+3. `draft_id` is attached to Stripe metadata / PayPal custom_id.
+4. On payment confirmation (Stripe webhook or verify endpoint, PayPal capture), draft is finalized as production order.
+5. Admin can read production orders from:
+
+```bash
+GET /api/admin/production/orders
+```
+
+If `ADMIN_API_TOKEN` is configured, pass it as:
+
+```bash
+Authorization: Bearer <ADMIN_API_TOKEN>
+```
+
+or query param `?token=...`.
+
+### Important note (MVP persistence)
+
+Current production orders are persisted in a local file: `data/production-orders.json`.  
+This survives local restarts, but is still not suitable for serverless production (e.g. Vercel), where filesystem is ephemeral.  
+For production, replace with a real DB (e.g. Postgres) and object storage for print assets.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

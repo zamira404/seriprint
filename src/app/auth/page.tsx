@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Tabs } from "@/components/ui/Tabs";
 import { Input } from "@/components/ui/Input";
@@ -11,8 +12,13 @@ import { useToast } from "@/components/ui/Toast";
 const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
 
 export default function AuthPage() {
+  const searchParams = useSearchParams();
   const toast = useToast();
-  const [tab, setTab] = React.useState<"login" | "register">("login");
+  const initialTab = React.useMemo<"login" | "register">(
+    () => (searchParams.get("mode") === "register" ? "register" : "login"),
+    [searchParams]
+  );
+  const [tab, setTab] = React.useState<"login" | "register">(initialTab);
 
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
@@ -20,6 +26,14 @@ export default function AuthPage() {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [pass, setPass] = React.useState("");
+  const nextPath = React.useMemo(() => {
+    const next = searchParams.get("next");
+    return next && next.startsWith("/") ? next : "/";
+  }, [searchParams]);
+
+  React.useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
 
   async function submit() {
     if (!email || !pass) {
@@ -29,7 +43,7 @@ export default function AuthPage() {
     if (tab === "login") {
       await login(email, pass);
       toast.push({ title: "Benvenuta ✓" });
-      window.location.href = "/";
+      window.location.href = nextPath;
       return;
     }
     if (!name) {
@@ -45,7 +59,7 @@ export default function AuthPage() {
     }
     await register(name, email, pass);
     toast.push({ title: "Account creato ✓" });
-    window.location.href = "/";
+    window.location.href = nextPath;
   }
 
   return (

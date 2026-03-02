@@ -11,26 +11,8 @@ import { useToast } from "@/components/ui/Toast";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+]?[\d\s()-]{7,20}$/;
-const CARD_RE = /^\d{13,19}$/;
-const CVV_RE = /^\d{3,4}$/;
-const EXP_RE = /^(0[1-9]|1[0-2])\/\d{2}$/;
-
 type PaymentMethod = "card" | "paypal";
 type DeliveryMethod = "shipping" | "pickup";
-
-function normalizeCard(raw: string) {
-  return raw.replace(/\D/g, "");
-}
-
-function isExpiryValid(value: string) {
-  if (!EXP_RE.test(value)) return false;
-  const [mm, yy] = value.split("/").map(Number);
-  const year = 2000 + yy;
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const thisYear = now.getFullYear();
-  return year > thisYear || (year === thisYear && mm >= month);
-}
 
 export default function CheckoutPage() {
   const toast = useToast();
@@ -40,8 +22,6 @@ export default function CheckoutPage() {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("shipping");
   const [sameBilling, setSameBilling] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [bankAuthOpen, setBankAuthOpen] = useState(false);
   const [paypalVerified, setPaypalVerified] = useState(false);
   const [paying, setPaying] = useState(false);
 
@@ -52,10 +32,6 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
 
-  const [cardHolder, setCardHolder] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
   const [paypalEmail, setPaypalEmail] = useState("");
 
   const shipping = useMemo(() => {
@@ -73,12 +49,7 @@ export default function CheckoutPage() {
     if (deliveryMethod === "shipping" && !address.trim()) return "Inserisci indirizzo di spedizione.";
     if (!sameBilling && !billingAddress.trim()) return "Inserisci indirizzo di fatturazione.";
 
-    if (paymentMethod === "card") {
-      if (!cardHolder.trim()) return "Inserisci intestatario carta.";
-      if (!CARD_RE.test(normalizeCard(cardNumber))) return "Numero carta non valido.";
-      if (!isExpiryValid(cardExpiry)) return "Scadenza carta non valida (MM/YY).";
-      if (!CVV_RE.test(cardCvv)) return "CVV non valido.";
-    } else {
+    if (paymentMethod === "paypal") {
       if (!EMAIL_RE.test(paypalEmail)) return "Inserisci una email PayPal valida.";
       if (!paypalVerified) return "Conferma che il tuo account PayPal è verificato.";
     }
@@ -86,18 +57,13 @@ export default function CheckoutPage() {
     return null;
   }
 
-  function openConfirm() {
+  function submitOrder() {
     const err = validateOrder();
     if (err) {
       toast.push({ title: err });
       return;
     }
-    setConfirmOpen(true);
-  }
-
-  function confirmOrder() {
-    setConfirmOpen(false);
-    setBankAuthOpen(true);
+    void startPayment();
   }
 
   async function startPayment() {
@@ -137,9 +103,20 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          items,
+          subtotal,
+          shipping,
           total,
           currency: "EUR",
-          customer: { firstName, lastName, email, phone },
+          customer: {
+            firstName,
+            lastName,
+            email,
+            phone,
+            deliveryMethod,
+            address,
+            billingAddress: sameBilling ? address : billingAddress,
+          },
         }),
       });
       const data = (await resp.json()) as { approveUrl?: string; error?: string };
@@ -153,11 +130,6 @@ export default function CheckoutPage() {
       toast.push({ title: "Errore avvio pagamento. Riprova." });
       setPaying(false);
     }
-  }
-
-  function proceedToProviderAuth() {
-    setBankAuthOpen(false);
-    void startPayment();
   }
 
   return (
@@ -221,18 +193,8 @@ export default function CheckoutPage() {
             </div>
 
             {paymentMethod === "card" ? (
-              <div className="space-y-3">
-                <Input value={cardHolder} onChange={(e) => setCardHolder(e.target.value)} placeholder="Intestatario carta" />
-                <Input
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  placeholder="Numero carta"
-                  inputMode="numeric"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} placeholder="MM/YY" />
-                  <Input value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} placeholder="CVV" inputMode="numeric" />
-                </div>
+              <div className="rounded-2xl border border-[var(--border)] bg-white/5 p-4 text-sm text-[var(--muted)]">
+                I dati carta verranno inseriti in modo sicuro nella pagina Stripe al passo successivo.
               </div>
             ) : (
               <div className="space-y-2">
@@ -264,7 +226,7 @@ export default function CheckoutPage() {
             <span className="font-medium">Totale</span>
             <span className="text-lg font-bold">{formatEUR(total)}</span>
           </div>
-          <Button className="w-full mt-2" onClick={openConfirm} disabled={paying}>
+          <Button className="w-full mt-2" onClick={submitOrder} disabled={paying}>
             {paying ? "Reindirizzamento..." : "Vai al pagamento"}
           </Button>
           <Link href="/carrello" className="inline-flex text-sm text-[var(--muted)] underline">
@@ -273,42 +235,6 @@ export default function CheckoutPage() {
         </Card>
       </div>
 
-      {confirmOpen ? (
-        <div className="fixed inset-0 z-50 bg-black/55 grid place-items-center p-4">
-          <Card className="w-full max-w-md space-y-4">
-            <h2 className="text-xl font-semibold">Sicuro del tuo ordine?</h2>
-            <p className="text-sm text-[var(--muted)]">
-              Totale da pagare: <strong>{formatEUR(total)}</strong>
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button className="w-full" onClick={confirmOrder}>
-                Si, sono sicuro
-              </Button>
-              <Button variant="secondary" className="w-full" onClick={() => setConfirmOpen(false)}>
-                No, non sono sicuro
-              </Button>
-            </div>
-          </Card>
-        </div>
-      ) : null}
-
-      {bankAuthOpen ? (
-        <div className="fixed inset-0 z-50 bg-black/55 grid place-items-center p-4">
-          <Card className="w-full max-w-md space-y-4">
-            <h2 className="text-xl font-semibold">Verifica banca tramite autorizzazione</h2>
-            <p className="text-sm text-[var(--muted)]">
-              Al prossimo step sarai reindirizzata al provider per la verifica reale (es. 3D Secure o login PayPal).
-            </p>
-            <Button className="w-full" onClick={proceedToProviderAuth} disabled={paying}>
-              {paying ? "Reindirizzamento..." : "Continua alla verifica"}
-            </Button>
-
-            <Button variant="secondary" className="w-full" onClick={() => setBankAuthOpen(false)}>
-              Annulla e torna al checkout
-            </Button>
-          </Card>
-        </div>
-      ) : null}
     </div>
   );
 }

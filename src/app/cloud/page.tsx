@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useCloudStore } from "@/lib/stores/cloud.store";
 import { useCartStore } from "@/lib/stores/cart.store";
+import { useAuthStore } from "@/lib/stores/auth.store";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
@@ -19,12 +21,13 @@ function bytes(n: number) {
 }
 
 export default function CloudPage() {
+  const router = useRouter();
   const toast = useToast();
   const addToCart = useCartStore((s) => s.add);
+  const user = useAuthStore((s) => s.user);
+  const hydrated = useAuthStore((s) => s.hydrated);
 
   const files = useCloudStore((s) => s.files);
-  const visible = useCloudStore((s) => s.visibleFiles());
-  const selectedIds = useCloudStore((s) => s.selectedIds());
   const query = useCloudStore((s) => s.query);
   const tab = useCloudStore((s) => s.tab);
   const setQuery = useCloudStore((s) => s.setQuery);
@@ -35,15 +38,113 @@ export default function CloudPage() {
   const toggleSelect = useCloudStore((s) => s.toggleSelect);
   const selectVisible = useCloudStore((s) => s.selectVisible);
   const clearSelection = useCloudStore((s) => s.clearSelection);
-  const usage = useCloudStore((s) => s.usage());
 
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [drag, setDrag] = React.useState(false);
 
+  const visible = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return files.filter((f) => {
+      const matchesTab =
+        tab === "all" ? true : tab === "photo" ? f.kind === "photo" : f.kind === "doc";
+      const matchesQuery = q ? f.name.toLowerCase().includes(q) : true;
+      return matchesTab && matchesQuery;
+    });
+  }, [files, query, tab]);
+
+  const selectedIds = React.useMemo(
+    () => files.filter((f) => f.selectedForPrint).map((f) => f.id),
+    [files]
+  );
+
+  const usage = React.useMemo(
+    () => ({ used: files.length, max: UI.maxCloudFiles }),
+    [files.length]
+  );
+
+  React.useEffect(() => {
+    if (!hydrated) return;
+    if (!user) router.replace("/auth?next=/cloud");
+  }, [hydrated, user, router]);
+
+  if (!hydrated) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <div className="text-sm text-[var(--muted)]">Controllo account in corso...</div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
   async function onPick(list: FileList | null) {
     if (!list || list.length === 0) return;
-    const res = await addFiles(Array.from(list));
+    const incoming = Array.from(list);
+    const body = new FormData();
+    incoming.forEach((f) => body.append("files", f, f.name));
+
+    let accepted = incoming;
+    let rejectedMalware = 0;
+    try {
+      const resp = await fetch("/api/cloud/validate-upload", {
+        method: "POST",
+        body,
+      });
+      if (!resp.ok) {
+        let message = "Validazione upload non disponibile. Riprova.";
+        try {
+          const payload = (await resp.json()) as { error?: string };
+          if (payload?.error) message = payload.error;
+        } catch {}
+        toast.push({ title: message });
+        return;
+      }
+      const validated = (await resp.json()) as {
+        acceptedIndices: number[];
+        rejectedType: number;
+        rejectedSize: number;
+        rejectedName: number;
+        rejectedMalware: number;
+        scanned: boolean;
+      };
+      accepted = incoming.filter((_, i) => validated.acceptedIndices.includes(i));
+      rejectedMalware = validated.rejectedMalware;
+      if (validated.rejectedType > 0) {
+        toast.push({ title: `Scartati ${validated.rejectedType} file: consentiti solo PDF, JPG, SVG.` });
+      }
+      if (validated.rejectedSize > 0) {
+        toast.push({ title: `Scartati ${validated.rejectedSize} file: massimo ${UI.maxCloudFileSizeMB} MB per file.` });
+      }
+      if (validated.rejectedName > 0) {
+        toast.push({ title: `Scartati ${validated.rejectedName} file: nome non consentito o sospetto.` });
+      }
+      if (validated.rejectedMalware > 0) {
+        toast.push({ title: `Bloccati ${validated.rejectedMalware} file sospetti da scansione antivirus.` });
+      }
+      if (!validated.scanned) {
+        toast.push({ title: "Scanner antivirus non configurato: attivo solo filtro tipo/dimensione." });
+      }
+    } catch {
+      toast.push({ title: "Errore durante la validazione server dei file." });
+      return;
+    }
+
+    const res = await addFiles(accepted);
     if (res.added > 0) toast.push({ title: `Upload completato ✓ (${res.added})` });
+    if (res.rejectedType > 0) {
+      toast.push({ title: `Scartati ${res.rejectedType} file: consentiti solo PDF, JPG, SVG.` });
+    }
+    if (res.rejectedSize > 0) {
+      toast.push({ title: `Scartati ${res.rejectedSize} file: massimo ${UI.maxCloudFileSizeMB} MB per file.` });
+    }
+    if (res.rejectedName > 0) {
+      toast.push({ title: `Scartati ${res.rejectedName} file: nome non consentito o sospetto.` });
+    }
+    if (rejectedMalware > 0) {
+      toast.push({ title: `Upload completato con blocco sicurezza: ${rejectedMalware} file rifiutati.` });
+    }
     if (res.blocked) toast.push({ title: `Limite ${UI.maxCloudFiles} file raggiunto. Rimuovi qualcosa per caricare altro.` });
   }
 
@@ -88,10 +189,24 @@ export default function CloudPage() {
             ref={inputRef}
             type="file"
             multiple
+            accept={UI.cloudAcceptedExtensions.join(",")}
             className="hidden"
             onChange={(e) => onPick(e.target.files)}
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {[
+          { t: "1) Carica", d: "Trascina i file nel Cloud: rimangono pronti per te." },
+          { t: "2) Organizza", d: "Filtra per foto/documenti, rinomina, seleziona per stampa." },
+          { t: "3) Stampa", d: "Aggiungi al carrello e procedi con calma." },
+        ].map((x) => (
+          <Card key={x.t} className="p-3">
+            <div className="text-xs text-[var(--muted)]">{x.t}</div>
+            <div className="mt-1 text-sm font-semibold">{x.d}</div>
+          </Card>
+        ))}
       </div>
 
       <Card>
@@ -116,10 +231,13 @@ export default function CloudPage() {
         >
           <div className="text-sm text-[var(--muted)]">Drag & drop</div>
           <div className="mt-1 font-semibold">
-            Rilascia qui foto o documenti (max {UI.maxCloudFiles} file)
+            Rilascia qui PDF, JPG o SVG (max {UI.maxCloudFiles} file)
           </div>
           <div className="mt-3 text-xs text-[var(--muted)]">
-            Sei a {usage.used}/{usage.max}. Tutto sotto controllo.
+            Max {UI.maxCloudFileSizeMB} MB per file. Sei a {usage.used}/{usage.max}.
+          </div>
+          <div className="mt-1 text-xs text-[var(--muted)]">
+            Sicurezza: validazione server su tipo/dimensione + scansione antivirus (se scanner configurato).
           </div>
         </div>
 
@@ -171,7 +289,20 @@ export default function CloudPage() {
                 aria-label="Seleziona per stampa"
                 title="Seleziona per stampa"
               >
-                {f.kind === "photo" ? "🖼" : "📄"}
+                {f.kind === "photo" && f.previewDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={f.previewDataUrl}
+                    alt={f.name}
+                    className="h-full w-full rounded-2xl object-cover"
+                  />
+                ) : f.mime === "application/pdf" ? (
+                  <span className="text-[10px] font-semibold">PDF</span>
+                ) : f.mime === "image/svg+xml" ? (
+                  <span className="text-[10px] font-semibold">SVG</span>
+                ) : (
+                  <span className="text-base">📄</span>
+                )}
               </button>
 
               <div className="min-w-0 flex-1">

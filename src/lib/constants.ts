@@ -21,4 +21,6 @@ export const PRODUCT_CATEGORY_ORDER = [
 
 export const UI = {
   maxCloudFiles: 200,
+  maxCloudFileSizeMB: 10,
+  cloudAcceptedExtensions: [".pdf", ".jpg", ".jpeg", ".svg"],
 } as const;

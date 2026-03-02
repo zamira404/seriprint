@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { CloudAccessButton } from "@/components/CloudAccessButton";
 import { PRODUCT_CATEGORY_ORDER } from "@/lib/constants";
 import { getShopProducts } from "@/lib/server/basic-products";
 
@@ -18,39 +19,52 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-10">
-      <section className="relative unw-card overflow-hidden p-8 sm:p-10">
-        <div
-          className="absolute inset-0 opacity-40 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(800px 400px at 20% 10%, rgba(43,89,255,0.25), transparent 55%), radial-gradient(700px 420px at 80% 30%, rgba(124,58,237,0.22), transparent 60%)",
-          }}
-        />
-        <div className="relative">
-          <div className="text-xs text-[var(--muted)]">UNAWATUNA • Premium calm</div>
-          <h1 className="mt-3 text-3xl sm:text-5xl font-semibold tracking-[-0.03em] leading-tight">
-            Carica, organizza, stampa. <span className="text-[var(--yellow)]">Senza stress</span>.
-          </h1>
-          <p className="mt-4 max-w-[56ch] text-[var(--muted)]">
-            Un esperienza tech e rilassante: tutto resta in ordine, pronto quando vuoi.
-          </p>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-            {[
-              { t: "1) Carica", d: "Trascina i file nel Cloud: rimangono pronti per te." },
-              { t: "2) Organizza", d: "Filtra per foto/documenti, rinomina, seleziona per stampa." },
-              { t: "3) Stampa", d: "Aggiungi al carrello e procedi con calma." },
-            ].map((x) => (
-              <Card key={x.t} className="unw-ease p-4">
-                <div className="text-sm text-[var(--muted)]">{x.t}</div>
-                <div className="mt-2 font-semibold">{x.d}</div>
-              </Card>
-            ))}
+      <div className="-mx-2 sm:-mx-4 grid grid-cols-1 lg:grid-cols-2 items-stretch gap-3">
+        <section className="relative unw-card unw-led-blue overflow-hidden p-3 sm:p-4 h-full flex">
+          <div
+            className="absolute inset-0 opacity-40 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(800px 400px at 20% 10%, rgba(43,89,255,0.25), transparent 55%), radial-gradient(700px 420px at 80% 30%, rgba(124,58,237,0.22), transparent 60%)",
+            }}
+          />
+          <div className="relative w-full flex flex-col items-center justify-center text-center">
+            <h1 className="text-base sm:text-lg font-semibold tracking-[-0.01em] leading-tight">
+              Carica, organizza, stampa. <span className="text-[var(--yellow)]">Senza stress</span>.
+            </h1>
+            <p className="mt-2 max-w-[64ch] text-sm text-[var(--muted)]">
+              Un esperienza tech e rilassante: tutto resta in ordine, pronto quando vuoi.
+            </p>
+            <div className="mt-3 flex justify-center">
+              <CloudAccessButton />
+            </div>
           </div>
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <Link href="/cloud"><Button>Apri Cloud</Button></Link>
+        </section>
+        <section className="relative unw-card unw-led-violet p-3 sm:p-4 h-full flex flex-col items-center justify-center text-center overflow-hidden">
+          <div
+            className="absolute inset-0 opacity-40 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(560px 260px at 12% 0%, rgba(124,58,237,0.2), transparent 60%), radial-gradient(480px 220px at 88% 100%, rgba(43,89,255,0.16), transparent 62%)",
+            }}
+          />
+          <div className="relative">
+            <h2 className="text-base sm:text-lg font-semibold tracking-[-0.01em] leading-tight">
+              Capi e accessori già stampati, <span className="text-[var(--yellow)]">pronti per te</span>.
+            </h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Accedi allo shop e scegli quello che ti rappresenta.
+            </p>
           </div>
-        </div>
-      </section>
+          <div className="relative mt-3 flex justify-center">
+            <Link href="/shop">
+              <Button variant="secondary" className="px-4 py-1.5 text-sm rounded-xl">
+                👉 Vai allo shop
+              </Button>
+            </Link>
+          </div>
+        </section>
+      </div>
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">
           <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.02em]">Categorie</h2>

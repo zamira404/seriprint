@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { BRAND, PRODUCT_CATEGORY_ORDER } from "@/lib/constants";
 import { useCartStore } from "@/lib/stores/cart.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
@@ -9,6 +10,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
 export function Header() {
+  const path = usePathname();
+  const isHome = path === "/";
   const count = useCartStore((s) => s.count());
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -72,14 +75,16 @@ export function Header() {
               <Button variant="secondary">Accedi / Registrati</Button>
             </Link>
           )}
-          <Link href="/carrello" className="relative unw-ease rounded-2xl px-3 py-2 hover:bg-white/5">
-            <span className="text-sm">Carrello</span>
-            {count > 0 ? (
-              <span className="absolute -top-1 -right-1">
-                <Badge>{count}</Badge>
-              </span>
-            ) : null}
-          </Link>
+          {!isHome ? (
+            <Link href="/carrello" className="relative unw-ease rounded-2xl px-3 py-2 hover:bg-white/5">
+              <span className="text-sm">Carrello</span>
+              {count > 0 ? (
+                <span className="absolute -top-1 -right-1">
+                  <Badge>{count}</Badge>
+                </span>
+              ) : null}
+            </Link>
+          ) : null}
         </div>
       </div>
     </header>

@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-
-type ReqItem = {
-  name: string;
-  price: number;
-  qty: number;
-};
+import { createDraftOrder } from "@/lib/server/order-pipeline";
 
 function appUrlFromRequest(req: Request) {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
@@ -22,8 +17,10 @@ export async function POST(req: Request) {
 
   try {
     const body = (await req.json()) as {
-      items: ReqItem[];
+      items: Array<{ name: string; price: number; qty: number }>;
+      subtotal: number;
       shipping: number;
+      total: number;
       customer?: { email?: string; firstName?: string; lastName?: string };
     };
 
@@ -33,6 +30,13 @@ export async function POST(req: Request) {
 
     const stripe = new Stripe(secretKey);
     const appUrl = appUrlFromRequest(req);
+    const draftId = createDraftOrder("stripe", {
+      items: body.items,
+      subtotal: Number(body.subtotal || 0),
+      shipping: Number(body.shipping || 0),
+      total: Number(body.total || 0),
+      customer: body.customer,
+    });
 
     const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = body.items.map((it) => ({
       quantity: Math.max(1, Number(it.qty || 1)),
@@ -62,11 +66,14 @@ export async function POST(req: Request) {
       customer_email: body.customer?.email,
       metadata: {
         customer_name: `${body.customer?.firstName || ""} ${body.customer?.lastName || ""}`.trim(),
+        draft_id: draftId,
       },
     });
 
     return NextResponse.json({ url: session.url });
-  } catch {
-    return NextResponse.json({ error: "Errore creazione sessione Stripe." }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Errore creazione sessione Stripe.";
+    console.error("Stripe create-session error:", err);
+    return NextResponse.json({ error: `Errore Stripe: ${message}` }, { status: 500 });
   }
 }

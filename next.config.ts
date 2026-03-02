@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "basicweb.it",
       },
+      {
+        protocol: "https",
+        hostname: "api.qrserver.com",
+      },
     ],
   },
   reactCompiler: true,

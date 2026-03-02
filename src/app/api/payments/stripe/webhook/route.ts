@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { finalizeOrderFromDraft } from "@/lib/server/order-pipeline";
 
 export async function POST(req: Request) {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -22,7 +23,15 @@ export async function POST(req: Request) {
     const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
 
     if (event.type === "checkout.session.completed") {
-      // TODO: salva ordine pagato su DB (event.data.object.id)
+      const session = event.data.object as Stripe.Checkout.Session;
+      const draftId = session.metadata?.draft_id;
+      if (draftId && session.id) {
+        finalizeOrderFromDraft({
+          provider: "stripe",
+          paymentRef: session.id,
+          draftId,
+        });
+      }
     }
 
     return NextResponse.json({ received: true });

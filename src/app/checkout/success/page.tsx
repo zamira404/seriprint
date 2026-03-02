@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useCartStore } from "@/lib/stores/cart.store";
@@ -14,6 +15,9 @@ export default function CheckoutSuccessPage() {
   const clear = useCartStore((s) => s.clear);
   const [status, setStatus] = useState<Status>("loading");
   const [message, setMessage] = useState("Verifica pagamento in corso...");
+  const [productionOrderId, setProductionOrderId] = useState<string | null>(null);
+  const [pickupCode, setPickupCode] = useState<string | null>(null);
+  const [pickupQrPayload, setPickupQrPayload] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -34,13 +38,22 @@ export default function CheckoutSuccessPage() {
         const res = await fetch(
           `/api/payments/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`
         );
-        const data = (await res.json()) as { paid?: boolean; error?: string };
+        const data = (await res.json()) as {
+          paid?: boolean;
+          error?: string;
+          orderId?: string;
+          pickupCode?: string;
+          pickupQrPayload?: string;
+        };
         if (!active) return;
 
         if (res.ok && data.paid) {
           clear();
           setStatus("paid");
           setMessage("Pagamento confermato. Ordine completato.");
+          if (data.orderId) setProductionOrderId(data.orderId);
+          if (data.pickupCode) setPickupCode(data.pickupCode);
+          if (data.pickupQrPayload) setPickupQrPayload(data.pickupQrPayload);
         } else {
           setStatus("failed");
           setMessage(data.error || "Pagamento non confermato.");
@@ -63,13 +76,22 @@ export default function CheckoutSuccessPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId }),
         });
-        const data = (await res.json()) as { paid?: boolean; error?: string };
+        const data = (await res.json()) as {
+          paid?: boolean;
+          error?: string;
+          productionOrderId?: string;
+          pickupCode?: string;
+          pickupQrPayload?: string;
+        };
         if (!active) return;
 
         if (res.ok && data.paid) {
           clear();
           setStatus("paid");
           setMessage("Pagamento PayPal confermato. Ordine completato.");
+          if (data.productionOrderId) setProductionOrderId(data.productionOrderId);
+          if (data.pickupCode) setPickupCode(data.pickupCode);
+          if (data.pickupQrPayload) setPickupQrPayload(data.pickupQrPayload);
         } else {
           setStatus("failed");
           setMessage(data.error || "Pagamento PayPal non confermato.");
@@ -98,6 +120,36 @@ export default function CheckoutSuccessPage() {
           {status === "loading" ? "Attendere..." : status === "paid" ? "Confermato" : "Da verificare"}
         </div>
         <div className="font-semibold">{message}</div>
+        {status === "paid" ? (
+          <div className="space-y-3">
+            <div className="text-sm text-[var(--muted)]">
+              Progetto inviato in produzione
+              {productionOrderId ? ` (ID: ${productionOrderId})` : ""}.
+            </div>
+            {pickupCode ? (
+              <Card>
+                <div className="text-sm text-[var(--muted)]">Codice ritiro in negozio</div>
+                <div className="mt-1 text-2xl font-semibold tracking-[0.1em]">{pickupCode}</div>
+                {pickupQrPayload ? (
+                  <div className="mt-3 flex justify-center">
+                    <Image
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                        pickupQrPayload
+                      )}`}
+                      alt="QR ritiro"
+                      width={180}
+                      height={180}
+                      className="rounded-xl border border-[var(--border)] bg-white p-2"
+                    />
+                  </div>
+                ) : null}
+                <div className="mt-2 text-xs text-[var(--muted)]">
+                  Mostra questo codice/QR al ritiro.
+                </div>
+              </Card>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <Link href="/">
             <Button>Torna alla home</Button>
